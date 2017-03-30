@@ -31,8 +31,15 @@ if(port!==null) {
         if (err) {
             return console.log('Error opening port: ', err.message);
         }
-
+        port.on('data', function (data) {
+            console.log('Data: ' + data);
+        });
         // write errors will be emitted on the port since there is no callback to write
-        port.write('main screen turn on');
+        port.write('sys get ver\r\n', function(err) {
+            if (err) {
+                return console.log('Error on write: ', err.message);
+            }
+            console.log('message written');
+        });
     });
 }
