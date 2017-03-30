@@ -2,9 +2,11 @@
  * Created by giggsoff on 30.03.2017.
  */
 var ttn = require('ttn');
+var SerialPort = require('serialport');
 var region = 'eu';
 var appId = 'sgb-test';
 var accessKey = 'ttn-account-v2.iNJOxpLhF76UpvGNpXEFt8ilwN9ZkIAaJOfYOwzVefA';
+
 
 var client = new ttn.Client(region, appId, accessKey);
 
@@ -18,3 +20,19 @@ client.on('error', function(err) {
 client.on('message', function(deviceId, data) {
     console.info('[INFO] ', 'Message:', deviceId, JSON.stringify(data, null, 2));
 });
+var port = null;
+if(process.platform === "win32") {
+    port = new SerialPort('COM3', {autoOpen: false, baudRate: 57600});
+}else if(process.platform === "linux"){
+    port = new SerialPort('/dev/ttyACM0', {autoOpen: false, baudRate: 57600});
+}
+if(port!==null) {
+    port.open(function (err) {
+        if (err) {
+            return console.log('Error opening port: ', err.message);
+        }
+
+        // write errors will be emitted on the port since there is no callback to write
+        port.write('main screen turn on');
+    });
+}
