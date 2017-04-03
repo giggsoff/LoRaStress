@@ -38,6 +38,7 @@ serialWorker.init = function(_port){
             { name: 'gowork', from: 'setting', to: 'work' },
             { name: 'error', from: ['connected','version','setting','work'], to: 'error' },
             { name: 'send', from: 'work', to: 'ready' },
+            { name: 'resend', from: 'ready', to: 'work' },
             { name: 'senderror', from: 'work', to: 'error' },
             { name: 'repair', from: 'error', to: 'work' }
         ],
@@ -126,6 +127,7 @@ serialWorker.init = function(_port){
             },
             onenterready: function() {
                 console.log('onenterready');
+                fsm.resend();
             }
         }
     });
