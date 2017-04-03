@@ -3,6 +3,7 @@
  */
 var ttn = require('ttn');
 var SerialPort = require('serialport');
+var serialWorker = require('./Workers/FSM');
 var region = 'eu';
 var appId = 'sgb-test';
 var accessKey = 'ttn-account-v2.iNJOxpLhF76UpvGNpXEFt8ilwN9ZkIAaJOfYOwzVefA';
@@ -14,12 +15,35 @@ client.on('connect', function(connack) {
     console.log('[DEBUG]', 'Connect:', connack);
 });
 
+client.on('activation', function(deviceId, data) {
+    console.log('[INFO] ', 'Activation:', deviceId, JSON.stringify(data, null, 2));
+});
+
+client.on('device', null, 'down/scheduled', function(deviceId, data) {
+    console.log('[INFO] ', 'Scheduled:', deviceId, JSON.stringify(data, null, 2));
+});
+
 client.on('error', function(err) {
     console.error('[ERROR]', err.message);
 });
+
+var bufferToLong = function(/*buffer*/buffer) {
+    var value = 0;
+    for ( var i = buffer.length - 1; i >= 0; i--) {
+        value = (value * 256) + buffer[i];
+    }
+    return value;
+};
+
 client.on('message', function(deviceId, data) {
-    console.info('[INFO] ', 'Message:', deviceId, JSON.stringify(data, null, 2));
+    //console.info('[INFO] ', 'Message:', deviceId, JSON.stringify(data, null, 2));
+    if(data.payload_raw){
+        var rec = bufferToLong(data.payload_raw);
+        var time = new Date().getTime();
+        console.log("Пришло: "+rec+"; Сейчас: "+time+"; Разница: "+(time-rec));
+    }
 });
+
 var port = null;
 if(process.platform === "win32") {
     port = new SerialPort('COM3', {autoOpen: false, baudRate: 57600});
@@ -31,15 +55,6 @@ if(port!==null) {
         if (err) {
             return console.log('Error opening port: ', err.message);
         }
-        port.on('data', function (data) {
-            console.log('Data: ' + data);
-        });
-        // write errors will be emitted on the port since there is no callback to write
-        port.write('sys get ver\r\n', function(err) {
-            if (err) {
-                return console.log('Error on write: ', err.message);
-            }
-            console.log('message written');
-        });
+        serialWorker.init(port);
     });
 }

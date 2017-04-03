@@ -2,36 +2,141 @@
  * Created by giggsoff on 30.03.2017.
  */
 var StateMachine = require('javascript-state-machine');
-var fsm = StateMachine.create({
 
-    initial: 'init',
+var serialWorker = {};
 
-    events: [
-        { name: 'connect', from: 'init', to: 'work' },
-        { name: 'connecterror', from: 'init', to: 'error' },
-        { name: 'send', from: 'work', to: 'ready' },
-        { name: 'senderror', from: 'work', to: 'error' },
-        { name: 'repair', from: 'error', to: 'work' }
-    ],
+var port = null;
+var timerId = null;
+var handler = null;
 
-    callbacks: {
+var longToByteString = function(/*long*/long) {
+    // we want to represent the input as a 8-bytes array
+    var byteArray = [0, 0, 0, 0, 0, 0, 0, 0];
 
-        onenterwork: function() { },
-        onentererror: function() { }/*,
-
-        onleavemenu: function() {
-            $('#menu').fadeOut('fast', function() {
-                fsm.transition();
-            });
-            return StateMachine.ASYNC; // tell StateMachine to defer next state until we call transition (in fadeOut callback above)
-        },
-
-        onleavegame: function() {
-            $('#game').slideUp('slow', function() {
-                fsm.transition();
-            });
-            return StateMachine.ASYNC; // tell StateMachine to defer next state until we call transition (in slideUp callback above)
-        }*/
-
+    for ( var index = 0; index < byteArray.length; index ++ ) {
+        var byte = long & 0xff;
+        byteArray [ index ] = byte;
+        long = (long - byte) / 256 ;
     }
-});
+    return byteArray.map(function(byte) {
+        return ('0' + (byte & 0xFF).toString(16)).slice(-2);
+    }).join('');
+};
+
+serialWorker.init = function(_port){
+
+    port = _port;
+
+    var fsm = StateMachine.create({
+        initial: 'init',
+        error: function(eventName, from, to, args, errorCode, errorMessage, originalException) {
+            return 'event ' + eventName + ' was naughty :- ' + errorMessage;
+        },
+        events: [
+            { name: 'sysgetver', from: 'init', to: 'version' },
+            { name: 'gosetting', from: 'version', to: 'setting' },
+            { name: 'gowork', from: 'setting', to: 'work' },
+            { name: 'error', from: ['connected','version','setting','work'], to: 'error' },
+            { name: 'send', from: 'work', to: 'ready' },
+            { name: 'senderror', from: 'work', to: 'error' },
+            { name: 'repair', from: 'error', to: 'work' }
+        ],
+
+        callbacks: {
+            onleaveinit: function() {
+                console.log('onleaveconnect');
+                var timerId = setTimeout(function() {
+                    console.log('error');
+                    fsm.transition();
+                    fsm.error();
+                }, 3000);
+                handler = function(data){
+                    console.log('Data 1: ' + data);
+                    clearTimeout(timerId);
+                    fsm.transition();
+                    fsm.gosetting();
+                };
+                // write errors will be emitted on the port since there is no callback to write
+                port.write('sys get ver\r\n', function(err) {
+                    if (err) {
+                        return console.log('Error on write: ', err.message);
+                    }
+                    console.log('message written');
+                });
+                return StateMachine.ASYNC;
+            },
+            onenterversion: function() {
+                console.log('onenterversion');
+                fsm.gosetting();
+                clearTimeout(timerId);
+            },
+            onleaveversion: function() {
+                console.log('onleaveversion');
+                var timerId = setTimeout(function() {
+                    console.log('error');
+                    fsm.transition();
+                    fsm.error();
+                }, 3000);
+                handler = function(data){
+                    console.log('Data 2: ' + data);
+                    clearTimeout(timerId);
+                    if(data.indexOf('accepted')>-1) {
+                        fsm.transition();
+                        fsm.gowork();
+                    }
+                };
+                // write errors will be emitted on the port since there is no callback to write
+                port.write('mac join abp\r\n', function(err) {
+                    if (err) {
+                        return console.log('Error on write: ', err.message);
+                    }
+                    console.log('mac join abp');
+                });
+                return StateMachine.ASYNC;
+            },
+            onenterwork: function() {
+                console.log('onenterwork');
+                fsm.send();
+            },
+            onleavework: function() {
+                console.log('onleavework');
+                var timerId = setTimeout(function() {
+                    console.log('error');
+                    fsm.transition();
+                    fsm.error();
+                }, 3000);
+                handler = function(data){
+                    console.log('Data 3: ' + data);
+                    clearTimeout(timerId);
+                    if(data.indexOf('mac_tx_ok')>-1) {
+                        fsm.transition();
+                    }
+                };
+                // write errors will be emitted on the port since there is no callback to write
+                var time = new Date().getTime();
+                console.log(time);
+                var towrite = 'mac tx uncnf 1 '+longToByteString(time);
+                port.write(towrite+'\r\n', function(err) {
+                    if (err) {
+                        return console.log('Error on write: ', err.message);
+                    }
+                    console.log(towrite);
+                });
+                return StateMachine.ASYNC;
+            },
+            onenterready: function() {
+                console.log('onenterready');
+            }
+        }
+    });
+
+    port.on('data', function (data) {
+        if(handler!=null){
+            handler(data);
+        }
+    });
+    fsm.sysgetver();
+
+};
+
+module.exports = serialWorker;
