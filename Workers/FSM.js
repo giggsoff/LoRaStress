@@ -5,27 +5,25 @@ var StateMachine = require('javascript-state-machine');
 
 var serialWorker = {};
 
-var port = null;
-var timerId = null;
-var handler = null;
-
-var longToByteString = function(/*long*/long) {
-    // we want to represent the input as a 8-bytes array
-    var byteArray = [0, 0, 0, 0, 0, 0, 0, 0];
-
-    for ( var index = 0; index < byteArray.length; index ++ ) {
-        var byte = long & 0xff;
-        byteArray [ index ] = byte;
-        long = (long - byte) / 256 ;
-    }
-    return byteArray.map(function(byte) {
-        return ('0' + (byte & 0xFF).toString(16)).slice(-2);
-    }).join('');
-};
-
 serialWorker.init = function(_port,repeat){
 
-    port = _port;
+    var port = _port;
+    var timerId = null;
+    var handler = null;
+
+    var longToByteString = function(/*long*/long) {
+        // we want to represent the input as a 8-bytes array
+        var byteArray = [0, 0, 0, 0, 0, 0, 0, 0];
+
+        for ( var index = 0; index < byteArray.length; index ++ ) {
+            var byte = long & 0xff;
+            byteArray [ index ] = byte;
+            long = (long - byte) / 256 ;
+        }
+        return byteArray.map(function(byte) {
+            return ('0' + (byte & 0xFF).toString(16)).slice(-2);
+        }).join('');
+    };
 
     var fsm = StateMachine.create({
         initial: 'init',

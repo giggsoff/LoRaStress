@@ -37,9 +37,22 @@ var bufferToLong = function(/*buffer*/buffer) {
     return value;
 };
 
-var summary = [];
+var summaryarr = [];
 
-var getInfo = function(){
+var getSummary = function(dev){
+    if(dev == null){
+        return summaryarr;
+    }
+    return summaryarr.filter(function (p1) { return p1.dev == dev; });
+};
+
+var getInfo = function(dev){
+    var summary = getSummary(dev);
+    if(dev!=null){
+        console.log("Устройство: "+dev);
+    }else{
+        console.log("Все устройства");
+    }
     if(summary.length<2){
         console.log("Мало пакетов");
         return 0;
@@ -73,26 +86,46 @@ client.on('message', function(deviceId, data) {
     if(data.payload_raw){
         var rec = bufferToLong(data.payload_raw);
         var time = new Date().getTime();
-        summary.push({time:time,send:rec,length:data.payload_raw.length});
+        summaryarr.push({dev:deviceId,time:time,send:rec,length:data.payload_raw.length});
+        console.log(deviceId);
         console.log("Пришло: "+rec+"; Сейчас: "+time+"; Разница: "+(time-rec));
-        getInfo();
+        getInfo(deviceId);
+        getInfo(null);
     }
 });
 
-var port = null;
+var port1 = null;
 if(process.platform === "win32") {
-    port = new SerialPort('COM3', {autoOpen: false, baudRate: 57600});
+    port1 = new SerialPort('COM3', {autoOpen: false, baudRate: 57600});
 }else if(process.platform === "linux"){
-    port = new SerialPort('/dev/ttyACM0', {autoOpen: false, baudRate: 57600});
+    port1 = new SerialPort('/dev/ttyACM0', {autoOpen: false, baudRate: 57600});
 }
-if(port!==null) {
-    port.open(function (err) {
+if(port1!==null) {
+    port1.open(function (err) {
         if (err) {
             return console.log('Error opening port: ', err.message);
         }
 
         var timerId = setTimeout(function() {
-            serialWorker.init(port,10);
+            serialWorker.init(port1,10);
+        }, 3000);
+    });
+}
+
+var port2 = null;
+if(process.platform === "win32") {
+    port2 = new SerialPort('COM4', {autoOpen: false, baudRate: 57600});
+}else if(process.platform === "linux"){
+    port2 = new SerialPort('/dev/ttyACM1', {autoOpen: false, baudRate: 57600});
+}
+if(port2!==null) {
+    port2.open(function (err) {
+        if (err) {
+            return console.log('Error opening port: ', err.message);
+        }
+
+        var timerId = setTimeout(function() {
+            serialWorker.init(port2,2);
         }, 3000);
     });
 }
