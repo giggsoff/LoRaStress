@@ -23,7 +23,7 @@ var longToByteString = function(/*long*/long) {
     }).join('');
 };
 
-serialWorker.init = function(_port){
+serialWorker.init = function(_port,repeat){
 
     port = _port;
 
@@ -109,14 +109,29 @@ serialWorker.init = function(_port){
                 handler = function(data){
                     console.log('Data 3: ' + data);
                     clearTimeout(timerId);
+                    /*if(data.indexOf('mac_rx')>-1) { // FOR CNF
+                        fsm.transition();
+                    }*/
                     if(data.indexOf('mac_tx_ok')>-1) {
                         fsm.transition();
+                    }else if(data.indexOf('no_free_ch')>-1){
+                        console.log('wait for free');
+                        setTimeout(function() {
+                            fsm.transition();
+                        }, 1000);
                     }
                 };
                 // write errors will be emitted on the port since there is no callback to write
                 var time = new Date().getTime();
                 console.log(time);
-                var towrite = 'mac tx uncnf 1 '+longToByteString(time);
+                var bt = longToByteString(time);
+                var str = bt;
+                if(repeat>1){
+                    for(var i=1;i<repeat;i++){
+                        str = str + bt;
+                    }
+                }
+                var towrite = 'mac tx uncnf 1 '+str;
                 port.write(towrite+'\r\n', function(err) {
                     if (err) {
                         return console.log('Error on write: ', err.message);

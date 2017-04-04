@@ -7,6 +7,8 @@ var serialWorker = require('./Workers/FSM');
 var region = 'eu';
 var appId = 'sgb-test';
 var accessKey = 'ttn-account-v2.iNJOxpLhF76UpvGNpXEFt8ilwN9ZkIAaJOfYOwzVefA';
+var moment = require('moment');
+moment.locale('ru');
 
 
 var client = new ttn.Client(region, appId, accessKey);
@@ -29,10 +31,41 @@ client.on('error', function(err) {
 
 var bufferToLong = function(/*buffer*/buffer) {
     var value = 0;
-    for ( var i = buffer.length - 1; i >= 0; i--) {
+    for ( var i = 8 - 1; i >= 0; i--) {
         value = (value * 256) + buffer[i];
     }
     return value;
+};
+
+var summary = [];
+
+var getInfo = function(){
+    if(summary.length<2){
+        console.log("Мало пакетов");
+        return 0;
+    }
+    console.log("Всего пакетов: "+summary.length);
+    console.log("Время работы: "+moment.duration(summary[summary.length-1].time - summary[0].time).humanize());
+    console.log("Пакетов в секунду: "+Number(summary.length/(summary[summary.length-1].time - summary[0].time)*1000).toFixed(3));
+    var maxt = Number.MIN_VALUE;
+    var mint = Number.MAX_VALUE;
+    var sumt = 0;
+    var suml = 0;
+    for(var i=0;i<summary.length;i++){
+        var cur = summary[i];
+        if(cur.time-cur.send>maxt){
+            maxt = cur.time-cur.send;
+        }
+        if(cur.time-cur.send<mint){
+            mint = cur.time-cur.send;
+        }
+        sumt = sumt + cur.time-cur.send;
+        suml = suml + cur.length;
+    }
+    console.log("Среднее время доставки, мс: "+Number(sumt/summary.length).toFixed(3));
+    console.log("Максимальное время доставки, мс: "+maxt);
+    console.log("Минимальное время доставки, мс: "+mint);
+    console.log("Средний размер нагрузки, байт: "+Number(suml/summary.length).toFixed(3));
 };
 
 client.on('message', function(deviceId, data) {
@@ -40,7 +73,9 @@ client.on('message', function(deviceId, data) {
     if(data.payload_raw){
         var rec = bufferToLong(data.payload_raw);
         var time = new Date().getTime();
+        summary.push({time:time,send:rec,length:data.payload_raw.length});
         console.log("Пришло: "+rec+"; Сейчас: "+time+"; Разница: "+(time-rec));
+        getInfo();
     }
 });
 
@@ -55,6 +90,9 @@ if(port!==null) {
         if (err) {
             return console.log('Error opening port: ', err.message);
         }
-        serialWorker.init(port);
+
+        var timerId = setTimeout(function() {
+            serialWorker.init(port,10);
+        }, 3000);
     });
 }
