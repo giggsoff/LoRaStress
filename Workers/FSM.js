@@ -5,7 +5,7 @@ var StateMachine = require('javascript-state-machine');
 
 var serialWorker = {};
 
-serialWorker.init = function(_port,repeat){
+serialWorker.init = function(_port,saver,repeat){
 
     var port = _port;
     var timerId = null;
@@ -113,6 +113,7 @@ serialWorker.init = function(_port,repeat){
                     if(data.indexOf('mac_tx_ok')>-1) {
                         fsm.transition();
                     }else if(data.indexOf('no_free_ch')>-1){
+                        saver('no_free');
                         console.log('wait for free');
                         setTimeout(function() {
                             fsm.transition();
@@ -134,6 +135,7 @@ serialWorker.init = function(_port,repeat){
                     if (err) {
                         return console.log('Error on write: ', err.message);
                     }
+                    saver('tx'+'\t'+time);
                     console.log(towrite);
                 });
                 return StateMachine.ASYNC;

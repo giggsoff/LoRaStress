@@ -4,10 +4,34 @@
 var ttn = require('ttn');
 var SerialPort = require('serialport');
 var serialWorker = require('./Workers/FSM');
+var moment = require('moment');
+var fs = require('fs');
 var region = 'eu';
 var appId = 'sgb-test';
 var accessKey = 'ttn-account-v2.iNJOxpLhF76UpvGNpXEFt8ilwN9ZkIAaJOfYOwzVefA';
-var moment = require('moment');
+
+var saveToFile = function(fname,text){
+    fs.appendFile(fname, moment()+'\t'+text+'\n', function (err) {
+        if (err) {
+            return console.log(err);
+        }
+    });
+};
+
+var fileSaver = function(fname){
+    var dirPath = 'tests/packageASym115dr6';
+    try {
+        fs.mkdirSync(dirPath);
+    } catch (err) {
+        if (err.code !== 'EEXIST') throw err;
+    }
+    return function(text){
+        saveToFile(dirPath+'/'+fname,text);
+    }
+};
+
+var saver = fileSaver('main');
+
 moment.locale('ru');
 
 
@@ -82,10 +106,11 @@ var getInfo = function(dev){
 };
 
 client.on('message', function(deviceId, data) {
-    //console.info('[INFO] ', 'Message:', deviceId, JSON.stringify(data, null, 2));
+    console.info('[INFO] ', 'Message:', deviceId, JSON.stringify(data, null, 2));
     if(data.payload_raw){
         var rec = bufferToLong(data.payload_raw);
         var time = new Date().getTime();
+        saver('rx\t'+deviceId+'\t'+time+'\t'+data.payload_raw.length+'\t'+rec+'\t'+data.metadata.gateways[0].channel);
         summaryarr.push({dev:deviceId,time:time,send:rec,length:data.payload_raw.length});
         console.log(deviceId);
         console.log("Пришло: "+rec+"; Сейчас: "+time+"; Разница: "+(time-rec));
@@ -105,9 +130,8 @@ if(port1!==null) {
         if (err) {
             return console.log('Error opening port: ', err.message);
         }
-
         var timerId = setTimeout(function() {
-            serialWorker.init(port1,10);
+            serialWorker.init(port1,fileSaver('port1'),1);
         }, 3000);
     });
 }
@@ -123,9 +147,8 @@ if(port2!==null) {
         if (err) {
             return console.log('Error opening port: ', err.message);
         }
-
         var timerId = setTimeout(function() {
-            serialWorker.init(port2,2);
+            serialWorker.init(port2,fileSaver('port2'),15);
         }, 3000);
     });
 }
