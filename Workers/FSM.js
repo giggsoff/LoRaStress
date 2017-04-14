@@ -25,6 +25,20 @@ serialWorker.init = function(_port,saver,repeat){
         }).join('');
     };
 
+    var byteStringToLong = function(str){
+        var result = [];
+        str = str.substring(0,16);
+        while (str.length >= 2) {
+            result.push(parseInt(str.substring(0, 2), 16));
+            str = str.substring(2, str.length);
+        }
+        var value = 0;
+        for ( var i = 8 - 1; i >= 0; i--) {
+            value = (value * 256) + result[i];
+        }
+        return value;
+    };
+
     var fsm = StateMachine.create({
         initial: 'init',
         error: function(eventName, from, to, args, errorCode, errorMessage, originalException) {
@@ -43,7 +57,7 @@ serialWorker.init = function(_port,saver,repeat){
 
         callbacks: {
             onleaveinit: function() {
-                console.log('onleaveconnect');
+                //console.log('onleaveconnect');
                 var timerId = setTimeout(function() {
                     console.log('error');
                     fsm.transition();
@@ -65,12 +79,12 @@ serialWorker.init = function(_port,saver,repeat){
                 return StateMachine.ASYNC;
             },
             onenterversion: function() {
-                console.log('onenterversion');
+                //console.log('onenterversion');
                 fsm.gosetting();
                 clearTimeout(timerId);
             },
             onleaveversion: function() {
-                console.log('onleaveversion');
+                //console.log('onleaveversion');
                 var timerId = setTimeout(function() {
                     console.log('error');
                     fsm.transition();
@@ -94,11 +108,11 @@ serialWorker.init = function(_port,saver,repeat){
                 return StateMachine.ASYNC;
             },
             onenterwork: function() {
-                console.log('onenterwork');
+                //console.log('onenterwork');
                 fsm.send();
             },
             onleavework: function() {
-                console.log('onleavework');
+                //console.log('onleavework');
                 var timerId = setTimeout(function() {
                     console.log('error');
                     fsm.transition();
@@ -118,6 +132,9 @@ serialWorker.init = function(_port,saver,repeat){
                         setTimeout(function() {
                             fsm.transition();
                         }, 1000);
+                    }else if(data.indexOf('mac_rx')>-1){
+                        saver('rx'+'\t'+new Date().getTime()+'\t'+byteStringToLong(String(data).split(' ')[2].trim()));
+                        fsm.transition();
                     }
                 };
                 // write errors will be emitted on the port since there is no callback to write
@@ -141,7 +158,7 @@ serialWorker.init = function(_port,saver,repeat){
                 return StateMachine.ASYNC;
             },
             onenterready: function() {
-                console.log('onenterready');
+                //console.log('onenterready');
                 fsm.resend();
             }
         }

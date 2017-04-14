@@ -19,7 +19,7 @@ var saveToFile = function(fname,text){
 };
 
 var fileSaver = function(fname){
-    var dirPath = 'tests/packageASym115dr6';
+    var dirPath = 'tests/packageSym5R5dr2ch8';
     try {
         fs.mkdirSync(dirPath);
     } catch (err) {
@@ -59,6 +59,23 @@ var bufferToLong = function(/*buffer*/buffer) {
         value = (value * 256) + buffer[i];
     }
     return value;
+};
+
+
+var longToByteArray = function(long,rep) {
+    var byteArray = [];
+    for(var i=0;i<rep*8;i++){
+        byteArray.push(0);
+    }
+    for(var j=0;j<rep;j++) {
+        var clong = long;
+        for (var index = 0; index < 8; index++) {
+            var byte = clong & 0xff;
+            byteArray [index+j*8] = byte;
+            clong = (clong - byte) / 256;
+        }
+    }
+    return byteArray;
 };
 
 var summaryarr = [];
@@ -106,16 +123,18 @@ var getInfo = function(dev){
 };
 
 client.on('message', function(deviceId, data) {
-    console.info('[INFO] ', 'Message:', deviceId, JSON.stringify(data, null, 2));
+    //console.info('[INFO] ', 'Message:', deviceId, JSON.stringify(data, null, 2));
     if(data.payload_raw){
         var rec = bufferToLong(data.payload_raw);
         var time = new Date().getTime();
-        saver('rx\t'+deviceId+'\t'+time+'\t'+data.payload_raw.length+'\t'+rec+'\t'+data.metadata.gateways[0].channel);
+        saver('rx\t'+deviceId+'\t'+time+'\t'+data.payload_raw.length+'\t'+rec+'\t'+data.metadata.gateways[0].channel+'\t'+data.metadata.data_rate);
         summaryarr.push({dev:deviceId,time:time,send:rec,length:data.payload_raw.length});
-        console.log(deviceId);
-        console.log("Пришло: "+rec+"; Сейчас: "+time+"; Разница: "+(time-rec));
-        getInfo(deviceId);
-        getInfo(null);
+        //console.log(deviceId);
+        //console.log("Пришло: "+rec+"; Сейчас: "+time+"; Разница: "+(time-rec));
+        //getInfo(deviceId);
+        //getInfo(null);
+        var b = longToByteArray(time,5);
+        client.send(deviceId, b);
     }
 });
 
@@ -131,7 +150,7 @@ if(port1!==null) {
             return console.log('Error opening port: ', err.message);
         }
         var timerId = setTimeout(function() {
-            serialWorker.init(port1,fileSaver('port1'),1);
+            serialWorker.init(port1,fileSaver('port1'),5);
         }, 3000);
     });
 }
@@ -148,7 +167,7 @@ if(port2!==null) {
             return console.log('Error opening port: ', err.message);
         }
         var timerId = setTimeout(function() {
-            serialWorker.init(port2,fileSaver('port2'),15);
+            serialWorker.init(port2,fileSaver('port2'),5);
         }, 3000);
     });
 }
